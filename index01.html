@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Personal To-Do List Manager</title>
+  <style>
+    body {
+      background: linear-gradient(to right, #89cff0, #4682b4);
+      font-family: 'Segoe UI', sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .container {
+      background: white;
+      padding: 25px;
+      border-radius: 15px;
+      box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+      width: 370px;
+      text-align: center;
+    }
+
+    h2 {
+      margin-bottom: 10px;
+      color: #2c3e50;
+    }
+
+    input, select, button {
+      padding: 8px;
+      margin: 5px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+    }
+
+    button {
+      background-color: #4682b4;
+      color: white;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
+    button:hover {
+      background-color: #36648b;
+    }
+
+    .task {
+      background: #f4f4f4;
+      padding: 10px;
+      border-radius: 10px;
+      margin: 10px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .category {
+      padding: 3px 8px;
+      border-radius: 6px;
+      color: white;
+      font-size: 12px;
+      margin-right: 8px;
+    }
+
+    .Work { background-color: #f39c12; }
+    .Personal { background-color: #9b59b6; }
+    .Study { background-color: #2ecc71; }
+
+    .done {
+      text-decoration: line-through;
+      opacity: 0.6;
+    }
+
+    .reminder {
+      font-size: 12px;
+      color: #555;
+      margin-top: 5px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h2>🗒 Personal To-Do List Manager</h2>
+    <p><i>Plan smart, achieve more — one task at a time.</i></p>
+
+    <input id="taskInput" placeholder="Enter your task..." />
+    <br>
+    <label for="reminderTime">⏰ Set Reminder:</label>
+    <input type="datetime-local" id="reminderTime" />
+    <br>
+    <select id="categorySelect">
+      <option value="Work">Work</option>
+      <option value="Personal">Personal</option>
+      <option value="Study">Study</option>
+    </select>
+    <button id="addBtn">Add Task</button>
+
+    <br><br>
+    <label>Filter by:</label>
+    <select id="filterSelect">
+      <option value="All">All</option>
+      <option value="Work">Work</option>
+      <option value="Personal">Personal</option>
+      <option value="Study">Study</option>
+    </select>
+
+    <div id="taskList"></div>
+  </div>
+
+  <script>
+    const input = document.getElementById('taskInput');
+    const reminderInput = document.getElementById('reminderTime');
+    const categorySelect = document.getElementById('categorySelect');
+    const addBtn = document.getElementById('addBtn');
+    const taskList = document.getElementById('taskList');
+    const filterSelect = document.getElementById('filterSelect');
+
+    let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+
+    function saveTasks() {
+      localStorage.setItem('tasks', JSON.stringify(tasks));
+    }
+
+    function addTask(text, category, completed = false, reminderTime = null) {
+      const task = { text, category, completed, reminderTime };
+      tasks.push(task);
+      saveTasks();
+      renderTasks();
+      if (reminderTime) scheduleReminder(task);
+    }
+
+    function renderTasks() {
+      taskList.innerHTML = '';
+      const filter = filterSelect.value;
+
+      tasks
+        .filter(t => filter === 'All' || t.category === filter)
+        .forEach((task, index) => {
+          const div = document.createElement('div');
+          div.className = 'task';
+
+          const label = document.createElement('div');
+          label.innerHTML = <span class="category ${task.category}">${task.category}</span> ${task.text};
+          if (task.completed) label.classList.add('done');
+
+          const reminderInfo = document.createElement('div');
+          if (task.reminderTime) {
+            const date = new Date(task.reminderTime);
+            reminderInfo.className = 'reminder';
+            reminderInfo.textContent = 🔔 Reminder at: ${date.toLocaleString()};
+          }
+
+          const completeBtn = document.createElement('button');
+          completeBtn.textContent = '✔';
+          completeBtn.onclick = () => {
+            tasks[index].completed = !tasks[index].completed;
+            saveTasks();
+            renderTasks();
+          };
+
+          const deleteBtn = document.createElement('button');
+          deleteBtn.textContent = '🗑';
+          deleteBtn.onclick = () => {
+            tasks.splice(index, 1);
+            saveTasks();
+            renderTasks();
+          };
+
+          const info = document.createElement('div');
+          info.appendChild(label);
+          if (task.reminderTime) info.appendChild(reminderInfo);
+
+          div.appendChild(info);
+          div.appendChild(completeBtn);
+          div.appendChild(deleteBtn);
+          taskList.appendChild(div);
+        });
+    }
+
+    // 🔔 Schedule a Reminder Alert
+    function scheduleReminder(task) {
+      const reminderTime = new Date(task.reminderTime);
+      const now = new Date();
+      const diff = reminderTime - now;
+
+      if (diff > 0) {
+        setTimeout(() => {
+          alert(⏰ Reminder: Time’s up for "${task.text}");
+        }, diff);
+      }
+    }
+
+    addBtn.addEventListener('click', () => {
+      const text = input.value.trim();
+      const category = categorySelect.value;
+      const reminderTime = reminderInput.value;
+
+      if (text) {
+        addTask(text, category, false, reminderTime);
+        input.value = '';
+        reminderInput.value = '';
+      }
+    });
+
+    filterSelect.addEventListener('change', renderTasks);
+
+    // Re-schedule reminders for existing tasks on reload
+    tasks.forEach(task => {
+      if (task.reminderTime && !task.completed) scheduleReminder(task);
+    });
+
+    // Initialize
+    renderTasks();
+  </script>
+</body>
+</html>
